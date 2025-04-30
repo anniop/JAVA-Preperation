@@ -519,3 +519,498 @@ public class threadSync{
 }
 ```
 here there is an single object class `Counter` and there are two objects sharing a single object of class `MyThread` so what happens in this code is that the threads will increase the counter by 1 and at the end it returns the final count but here we have used the `synchronized` keyword before the method `increment()` because both thread are trying to increase the count of the count variable and because of that keyword it gives output 2000 always if the `synchronized` keyword is not used then it will not return 2000 count always.
+
+---
+## Locking in Java
+### 🔒 What is Locking a Resource in Java?
+-> **Locking a resource** in Java means **restricting access** to a shared resource (like a variable, file, or object) so that **only one thread** can use it at a time. This prevents **inconsistent data**, **race conditions**, or **unexpected behavior** in multithreaded programs.
+
+---
+### 🧠 Simple Explanation
+-> Imagine two people trying to write in the same notebook at the same time. Their words would get mixed up. So we give them a **lock** — whoever gets it first can write, and the other has to **wait**.
+
+---
+### There are two types of locking in java:-
+1. **Intrinsic**
+	->These are built into every object in Java. You don't see them, but they're there. when you use a synchronized keyword, you're using these automatic locks.
+
+2. **Explicit**
+	-> These are more advanced locks you can control yourself using the `Lock` class from `java.util.concurrent.locks`, you explicitly say when to lock and unlock, giving you more control over how and when people can write in the notebook.
+
+---
+## `ReentrantLock` and `Lock Interface`
+
+## 🔍 1. What is `ReentrantLock`?
+
+### ✅ It's a class in `java.util.concurrent.locks` package.
+
+- It implements the `Lock` interface.
+- Gives more control than `synchronized`.
+---
+## 💡 2. What is "Reentrant"?
+
+"Reentrant" means:
+> A thread can acquire the same lock **multiple times** without getting blocked.
+
+**Example**
+```java
+lock.lock();
+lock.lock(); // same thread can lock again
+...
+lock.unlock();
+lock.unlock(); // must unlock as many times as locked.
+```
+---
+## 🔐 3. Why use `ReentrantLock` over `synchronized`?
+
+|Feature|`synchronized`|`ReentrantLock`|
+|---|---|---|
+|Explicit lock/unlock|❌ No|✅ Yes|
+|Try to acquire lock (non-blocking)|❌ No|✅ Yes (`tryLock`)|
+|Timeout while trying to lock|❌ No|✅ Yes (`tryLock(timeout)`)|
+|Interrupt lock acquisition|❌ No|✅ Yes (`lockInterruptibly`)|
+|Fairness (first come first serve)|❌ No|✅ Yes|
+
+---
+## 🧱 4. Common `Lock` Interface Methods
+### `lock()`
+- Acquires the lock. Waits **forever** if already locked by another thread.
+
+```java
+lock.lock();
+```
+
+---
+### `unlock()`
+- Releases the lock.
+- Must be called inside `finally` block to **avoid deadlock**.
+
+```java
+lock.unlock();
+```
+
+----
+### `tryLock()`
+- tries to acquire the lock **immediately**.
+- Returns `true` if successful, `false` otherwise.
+
+```java
+if(lock.tryLock()){
+	// got the lock
+	try{ ... }
+	finally { lock.unlock(); }
+} else {
+	// didn't get the lock
+}
+```
+
+---
+### `tryLock(timeout, TimeUnit)`
+- Waits for a specific time to get the lock, then gives up
+
+```java
+if(lock.tryLock(2, TimeUnit.SECONDS)){
+	// got the lock
+} else {
+	// didn't get the lock within timeout
+}
+```
+
+---
+### `lockInterruptibly()`
+- Similar to `lock()`, but the thread can be **interrupted** while waiting
+
+```java
+try {
+	lock.lockInterruptibly();
+	...
+} catch(InterruptedException e) {
+	// thread interrupted while waiting
+}
+```
+
+---
+### `isHeldByCurrentThread()`
+- Returns `true` if current thread holds the lock.
+
+---
+## Basic Lock Usage
+
+```java
+import java.util.concurrent.locks.ReentrantLock;
+
+class SharedResource {
+    private final ReentrantLock lock = new ReentrantLock();
+    private int counter = 0;
+
+    public void increment() {
+        lock.lock();
+        try {
+            counter++;
+            System.out.println(Thread.currentThread().getName() + ": " + counter);
+        } finally {
+            lock.unlock();
+        }
+    }
+}
+
+public class LockTest {
+    public static void main(String[] args) {
+        SharedResource resource = new SharedResource();
+
+        Runnable task = () -> {
+            for (int i = 0; i < 5; i++) {
+                resource.increment();
+                try { Thread.sleep(500); } catch (InterruptedException e) {}
+            }
+        };
+
+        new Thread(task, "Thread-1").start();
+        new Thread(task, "Thread-2").start();
+    }
+}
+```
+---
+## DeadLock
+
+Deadlock is a **situation** in multithreading where two or more threads are blocked forever, waiting for each other to release a resource. This typically occurs when two or more threads have a circular dependencies on a set of locks.
+
+### Deadlocks typically occur when four conditions are met simultaneously:
+1. **Mutual Exclusion**: Only one thread can access a resource at a time.
+2. **Hold and Wait**: A thread holding at least one resource is waiting to acquire additional resources held by other threads.
+3. **No Preemption**: Resources cannot be forcibly taken from threads holding them.
+4. **Circular Wait**: A set of threads is waiting for each other in a circular chain.
+
+---
+## Thread Communication
+
+In a multithreaded environment, threads often need to communicate and coordinate with each other to accomplish a task
+Without proper communication mechanisms, threads might end up in inefficient busy-waiting states, leading to wastage of CPU resources and potential deadlocks.
+Thread Communication allows **one thread to wait**, and **another to notify** when the task is ready.
+
+---
+### Purpose
+Used when one thread has to wait for another thread to complete something.
+
+---
+### Java provides three main methods for communication between threads:
+
+```java
+wait() // Makes thread wait
+notify() // Wakes up ONE waiting thread
+notifyAll() // Wakes up ALL waiting threads
+```
+
+### Important:-
+- These methods can **only be used inside synchronized blocks/methods.
+- They belong to the **Object class** (not Thread class!).
+---
+### 🔄 Basic Flow of Communication
+
+```java
+Thread 1:
+	- synchronized(lockObject)
+	- checks condition
+	- if not okay, calls wait()
+	- goes to waiting state
+
+Thread 2:
+	- synchronized(lockObject)
+	- does some work
+	- calls notify() when ready
+```
+---
+### 🤹 Real-Life Analogy: Producer-Consumer
+
+**Produce** makes products
+**Consumer** consumes products.
+But:
+- If the shelf is **full**, producer must wait.
+- If the shelf is **empty**, consumer must wait.
+
+----
+### Code 
+
+```java
+class SharedData{
+  int data;
+  boolean valueSet = false;
+
+  synchronized void produce(int value){
+    while(valueSet) {
+      try {wait(); }catch (InterruptedException e) {}
+    }
+    data = value;
+    System.out.println("Produced: "+ data);
+    valueSet = true;
+    notify(); // Notify the consumer
+  }
+
+  synchronized void consume(){
+    while (!valueSet) {
+      try { wait();} catch(InterruptedException e) {} 
+      }
+      System.out.println("Consumed: " + data);
+      valueSet = false;
+      notify(); // Notify the producer
+  }
+}
+
+class Producer extends Thread{
+  SharedData d;
+  Producer(SharedData d) { this.d = d; }
+
+  @Override
+  public void run(){
+    for(int i = 0;i < 5;i++){
+      d.produce(i);
+      try { Thread.sleep(1000);} catch(Exception e) {}
+    }
+  }
+}
+
+class Consumer extends Thread{
+  SharedData d;
+  Consumer(SharedData d) { this.d = d; }
+  
+  @Override
+  public void run(){
+    for(int i = 0; i< 5;i++){
+      d.consume();
+      try { Thread.sleep(1000);} catch(Exception e) {}
+    }
+  }
+}
+
+public class threadCom{
+  public static void main(String[] Google) {
+    SharedData data = new SharedData();
+    Producer t1 = new Producer(data);
+    Consumer t2 = new Consumer(data);
+    t1.start();
+    t2.start();
+  }
+}
+```
+
+### 💡 Code Explanation (Line-by-Line Style)
+
+- `SharedData` is the common object shared between Producer and Consumer.
+- `produce(int)` is synchronized -> Only one thread can enter.
+- If value is already produced(`valueSet == true`), it **waits**.
+- Once it produces, it sets `valueSet = true` and **notifies** the consumer.
+- Consumer does the same in reverse: waits if no value, consumes if available.
+
+---
+### 🔄 Thread Communication States
+
+```pgsql
++-------------------+        notify()        +--------------------+
+|   WAITING STATE   |  <------------------   |     RUNNING        |
++-------------------+                       +--------------------+
+         ↑                                        ↓
+     wait() called                          acquires lock
+```
+
+---
+### Key Rules
+- `wait()` and `notify()` are from Object class.
+- Always use `while(condition)` before `wait()`.
+- Only call `wait/notify` on shared object.
+---
+### Thread Safety:-
+
+> A class or method is **thread-safe** if **multiple threads can use it at the same time without corrupting data** or causing **unexpected behaviour**.
+
+So if 2 or more threads **access shared data**, and **at least one of them writes/changes** the data, **we need synchronization** to make sure it's safe.
+
+### Why Thread Safety is Needed?
+
+Not Thread-Safe Counter:
+```java
+class Counter {
+	int count = 0;
+
+	void increment() {
+		count++;
+	}
+}
+```
+If 10 threads call `increment()` at the same time, we might expect the final result to be 10...
+But due to thread interference, it could be **6 or 7 or 8** never predictable!
+
+----
+### Making it Thread-Safe(Different Ways)
+
+#### 1. Use `synchronized`
+
+```java
+class Counter {
+	int count = 0;
+
+	synchronized void increment() {
+		count++;
+	}
+}
+```
+Now only one thread can enter `increment()` at a time -> 💯 safe.
+
+---
+#### Use `ReentrantLock`(More Flexible)
+
+```java
+import java.util.concurrent.locks.ReentrantLock;
+
+class Counter{
+	int count = 0;
+	ReentrantLock lock = new ReentrantLock();
+
+	void increment(){
+		lock.lock();
+		try{
+			count++;
+		} finally {
+			lock.unlock(); // Always release the lock
+		}
+	}
+}
+```
+Useful when:
+- You want to try locking(tryLock)
+- Use condition variables(await/signal)
+- Want fine-grained locking
+
+---
+### Thread using Lambda Expression
+
+A interface with single a single abstract method is called as functional interface 
+Lambda expression is a anonymous function
+
+---
+### What is Lambda Expression in Java?
+-> Lambda is a short way to create **anonymous functions**(functions without a name).
+It came in **Java 8** and made functional programming possible in Java.
+
+#### Syntax:-
+
+```java
+(parameters) -> { body }
+```
+
+---
+### Thread With Lambda Expression
+Normally, we write thread like this:
+
+```java
+class MyTask implements Runnable{
+	public void run(){
+		System.out.println("Thread Running");
+	}
+}
+public class Main{
+	public static void main(String[] Google){
+		Thread t = new Thread(new MyTask());
+		t.start();
+	}
+}
+```
+But with **Lambda**:
+### Same thing using Lambda:
+
+```java
+public class Main{
+	public static void main(String[] Google){
+		Thread t = new Thread(() -> {
+			System.out.println("Thread running using lambda!");
+		});
+
+		t.start();
+	}
+}
+```
+
+### Multiple Threads Using Lambda:
+
+```java
+public class Lambda {
+   public static void main(String[] args) {
+    Thread t1 = new Thread(() ->{
+        for(int i = 0;i < 5;i++){
+            System.out.println("Ping "+i);
+            try {Thread.sleep(1000);} catch(InterruptedException e){}
+        }
+    });
+    Thread t2 = new Thread(() ->{
+        for(int i = 0;i < 5;i++){
+            System.out.println("Pong "+i);
+            try{Thread.sleep(1000);} catch(InterruptedException e) {}
+        }
+    });
+
+    t1.start();
+    t2.start();
+   } 
+}
+```
+---
+### When to Use Thread With Lambda?
+
+- When the task is small and doesn't need a separate class.
+- You want cleaner code.
+- You're working with **functional interfaces** like `Runnable`, `Callable`
+
+---
+### Bonus Tip:
+
+> Lambda can only be used where the target type is a **functional interface**.
+
+
+---
+## Thread Pooling In Java
+
+**What is Thread Pooling ?**
+Imagine you are at a restaurant :
+- If 100 customers come, you **don't hire 100 chefs**.
+- Instead, you have a **fixed number of chefs**, and they **keep taking new orders** when they're done.
+
+**Why Thread Pool ?**
+- Resource management
+- Response time
+- control over thread count
+
+**That's thread pooling**
+You don't create a new thread for every task(which is expensive). Instead:
+- You create a **fixed number of threads once**
+- They wait in a **pool**
+- Tasks are **given to idle threads**
+- This saves CPU, memory, and improves performance.
+
+---
+### Key Class : `ExecutorService` (Java 5+)
+
+Java introduced `Executor Framework` to manage thread pools.
+
+---
+#### Most Common Types of Thread Pools
+You can create them using `Executors` class:
+
+```java
+ExecutorService service = Executors.newFixedThreadPool(3); // 3 Threads
+```
+
+- `newFixedThreadPool(n)` -> Fixed number of threads.
+- `newCachedThreadPool()` -> Creates threads as needed. reuses idle.
+- `newSingleThreadExecutor()` -> One thread handles all tasks.
+- `newScheduledThreadPool(n)` -> For scheduled tasks (like timers).
+
+---
+
+## Executors Framework 
+
+The Executors Framework was introduced in **JAVA 5** as part of the **java.util.concurrent** package to simplify the development of **concurrent applications** by abstracting away many of the **complexities** involved in creating and managing threads.
+
+### Problems Prior to Executors Framework
+1. Resource Management
+2. Scalability
+3. Thread Reuse
+4. Error Handling
